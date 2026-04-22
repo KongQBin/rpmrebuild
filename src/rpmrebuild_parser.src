@@ -46,6 +46,7 @@ options:
    -r, --release=N              $UsageRelease
    -R, --autorequire            $UsageAutoRequire
    -s, --spec-only=<specfile>   $UsageSpecOnly
+       --force-arch=<arch>      $UsageForceArch
    -v, --verbose                $UsageVerbose
        --debug                  $UsageDebug
    -V, --version                $UsageVersion
@@ -790,6 +791,13 @@ function ProcessLongOptions
 			filter)
 				LONG_OPTION='change-spec-whole' # alias
 			;;
+
+            force-a | \
+			force-ar | \
+			force-arc | \
+			force-arch)
+				LONG_OPTION="force-arch"
+			;;
 			
 			h | \
 			he | \
@@ -1116,6 +1124,12 @@ function ProcessLongOptions
 				then
 					CreateProcessing "$LONG_OPTION" || return
 				fi
+			;;
+
+            force-arch)
+				# 强制要求必须带参数值 (即带有 =)
+				RequeredArgument || return
+				export FORCE_ARCH="$OPTARG"
 			;;
 
 			help)

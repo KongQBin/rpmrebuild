@@ -216,25 +216,32 @@ function RpmArch
 	pac_arch=$( spec_query qf_spec_arch )
 	return;
 }
+
 ###############################################################################
-# 初始化包架构
+# 初始化包架构（支持通过 FORCE_ARCH 环境变量强制覆盖）
 function ArchInit
 {
 	Debug '(ArchInit)'
+
+	# 获取原始架构
 	RpmArch
 
-    # 删除配置文件里的架构信息，使rpmbuild架构弱相关
-	sed -i '/^BuildArch:/Id' "${FIC_SPEC}"
-	Debug "  Removed BuildArch from SPEC file to bypass rpmbuild strict check"
-
-	# 完全以 target 和 define 的原有架构名称为准，实现“修旧如旧”
-	if [ -n "$pac_arch" ] && [ "$pac_arch" != "(none)" ]; then
-		RPMREBUILD_additional="$RPMREBUILD_additional --target=$pac_arch --define=\"_arch $pac_arch\" --define=\"_target_cpu $pac_arch\""
-		Debug "  Forced target architecture to: $pac_arch"
+	# 检查用户是否传递了强制架构参数
+	if [ -n "$FORCE_ARCH" ]; then
+		Debug "  User triggered forced architecture: $FORCE_ARCH"
+		# 删除配置文件中的架构信息，使rpmbuild不再关心架构
+		sed -i '/^BuildArch:/Id' "${FIC_SPEC}"
+		Debug "  Removed BuildArch from SPEC file to bypass rpmbuild strict check."
+		# 注入强制架构参数，全面接管打包流程
+		RPMREBUILD_additional="$RPMREBUILD_additional --target=$FORCE_ARCH"
+		RPMREBUILD_rpm_defines="$RPMREBUILD_rpm_defines --define=\"_arch $FORCE_ARCH\" --define=\"_target_cpu $FORCE_ARCH\""
+	else
+		# 默认情况，禁止设置字典中不存在的架构，否则rpmbuild报错
+		Debug "  Normal mode. Keeping original SPEC BuildArch: $pac_arch"
 	fi
+
 	return
 }
-
 ###############################################################################
 # build rpm package using rpmbuild command
 function RpmBuild
