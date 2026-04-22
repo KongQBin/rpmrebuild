@@ -147,9 +147,9 @@ function ProcessTar {
 ###############################################################################
 # for rpm file, we have to extract files to BUILDROOT directory but this time is tgz
 function RpmUnpackTGZ {
-	local ARCHIVE_TEMP="$TMPDIR_WORK/${PAQUET_NAME}.tgz"
-	local PAQUETGZ="$PAQUET.tgz"
-	rpm2archive "${PAQUET}" && mv "$PAQUETGZ" "$ARCHIVE_TEMP" && ProcessTar "$ARCHIVE_TEMP" || {
+    local ARCHIVE_TEMP="$TMPDIR_WORK/temp_archive.tgz"
+    local PAQUETGZ="${RPMREBUILD_PAQUET}.tgz"
+    rpm2archive "${RPMREBUILD_PAQUET}" && mv "$PAQUETGZ" "$ARCHIVE_TEMP" && ProcessTar "$ARCHIVE_TEMP" || {
 		Error "(RpmUnpack) rpm2cpio and rpm2archive failed"
 		return 1
 	}
@@ -168,10 +168,10 @@ function RpmUnpack {
 		Error "(RpmUnpack) $BuildRootError"
 		return 1
 	}
-	local CPIO_TEMP=$TMPDIR_WORK/${PAQUET_NAME}.cpio
-	echo "${PAQUET}"
-	rm --force "$CPIO_TEMP" || return
-	rpm2cpio "${PAQUET}" >"$CPIO_TEMP" || {
+    local CPIO_TEMP=$TMPDIR_WORK/temp_archive.cpio
+    echo "Unpacking: ${RPMREBUILD_PAQUET}"
+    rm --force "$CPIO_TEMP" || return
+    rpm2cpio "${RPMREBUILD_PAQUET}" >"$CPIO_TEMP" || {
 		# If rpm2cpio fails, try using rpm2archive
 		echo "(RpmUnpack) rpm2cpio failed, trying rpm2archive,this might take long time"
 		rm --force "$CPIO_TEMP" || return
