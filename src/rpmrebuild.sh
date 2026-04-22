@@ -48,7 +48,7 @@ function SpecEdit
 	# -e option : edit the spec file
 	local File
 	File=$1
-	${VISUAL:-${EDITOR:-vi}} "$File"
+	${VISUAL:-${EDITOR:-vim}} "$File"
 	AskYesNo "$WantContinue" || {
 		Aborted="yes"
 		export Aborted
