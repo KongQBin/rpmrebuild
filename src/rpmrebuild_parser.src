@@ -1013,6 +1013,8 @@ function ProcessLongOptions
 		case "$LONG_OPTION" in
 			additional)
 				RequeredArgument || return
+				ParseBuildArguments "$OPTARG" || return
+				RPMREBUILD_ADDITIONAL_ARGS+=("${RPMREBUILD_PARSED_ARGS[@]}")
 				RPMREBUILD_additional="$RPMREBUILD_additional $OPTARG"
 			;;
 
@@ -1089,13 +1091,13 @@ function ProcessLongOptions
 
 			define)
 				RequeredArgument || return
-				RPMREBUILD_rpm_defines="$RPMREBUILD_rpm_defines --define '$OPTARG'"
+				AddRpmDefine "$OPTARG"
 			;;
 
 			directory)
 				RequeredArgument || return
 				RPMREBUILD_rpmdir="$OPTARG"
-				RPMREBUILD_rpm_defines="$RPMREBUILD_rpm_defines --define '_rpmdir $RPMREBUILD_rpmdir'"
+				AddRpmDefine "_rpmdir $RPMREBUILD_rpmdir"
 			;;
 
 			edit-changelog    | \
@@ -1130,6 +1132,7 @@ function ProcessLongOptions
 				# 强制要求必须带参数值 (即带有 =)
 				RequeredArgument || return
 				export FORCE_ARCH="$OPTARG"
+				ValidateForceArch || return
 			;;
 
 			help)
@@ -1246,6 +1249,9 @@ function CommandLineParsing
 	# and to access from plugins
 	NEED_EXIT=""  # if not empty should be set to desired exit status
 	export RPMREBUILD_additional=""
+	RPMREBUILD_ADDITIONAL_ARGS=()
+	RPMREBUILD_DEFINE_ARGS=()
+	[ -z "$FORCE_ARCH" ] || ValidateForceArch || return
 	export RPMREBUILD_autoprovide="no"
 	export RPMREBUILD_autorequire="no"
 	export RPMREBUILD_batch="no"
@@ -1312,7 +1318,7 @@ function CommandLineParsing
 					*)
                    				LONG_OPTION="$OPTARG"
                    				if [ $OPTIND -le $# ]; then
-							eval OPTARG=\${$OPTIND}
+							OPTARG=${!OPTIND}
                       					OPTARG_EXIST=1
 							OPTIND_INCR=1
                    				else
@@ -1390,7 +1396,7 @@ function CommandLineParsing
 		# There is no rpmdir specified 
 		# Let us find native rpmdir value
 		# (with respect to defines)
-		RPMREBUILD_rpmdir="$(eval rpm "$RPMREBUILD_rpm_defines" --eval %_rpmdir)" || return
+		RPMREBUILD_rpmdir="$(rpm "${RPMREBUILD_DEFINE_ARGS[@]}" --eval %_rpmdir)" || return
 	else
 		# There is rpmdir specified.
 		# Let us find it's absolute path.

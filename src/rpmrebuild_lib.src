@@ -136,3 +136,73 @@ function TestAwk
 	fi
 }
 ###############################################################################
+
+###############################################################################
+# Keep rpm macro definitions as arguments, not executable shell text.
+function AddRpmDefine
+{
+    RPMREBUILD_DEFINE_ARGS+=(--define "$1")
+    local quoted
+    printf -v quoted '%q' "$1"
+    RPMREBUILD_rpm_defines="$RPMREBUILD_rpm_defines --define $quoted"
+}
+
+# Split --additional flags with quotes and escapes, without evaluating commands.
+# The resulting array preserves spaces inside quoted arguments.
+function ParseBuildArguments
+{
+    local text="$1" char quote='' word='' started=no escaped=no i
+    RPMREBUILD_PARSED_ARGS=()
+    for ((i=0; i<${#text}; i++)); do
+        char=${text:i:1}
+        if [ "$escaped" = yes ]; then
+            word+="$char"; escaped=no; continue
+        fi
+        case "$quote" in
+            "'")
+                if [ "$char" = "'" ]; then quote=''; else word+="$char"; fi
+                ;;
+            '"')
+                case "$char" in
+                    '"') quote='' ;;
+                    '\')
+                        case "${text:i+1:1}" in
+                            '$'|'`'|'"'|'\') escaped=yes ;;
+                            *) word+="$char" ;;
+                        esac
+                        ;;
+                    *) word+="$char" ;;
+                esac
+                ;;
+            *)
+                case "$char" in
+                    "'"|'"') quote="$char"; started=yes ;;
+                    '\') escaped=yes; started=yes ;;
+                    ' '|$'\t'|$'\n')
+                        if [ "$started" = yes ]; then
+                            RPMREBUILD_PARSED_ARGS+=("$word")
+                            word=''; started=no
+                        fi
+                        ;;
+                    *) word+="$char"; started=yes ;;
+                esac
+                ;;
+        esac
+    done
+    if [ -n "$quote" ] || [ "$escaped" = yes ]; then
+        Warning 'Unterminated quote or escape in --additional'
+        return 1
+    fi
+    [ "$started" = no ] || RPMREBUILD_PARSED_ARGS+=("$word")
+    return 0
+}
+
+function ValidateForceArch
+{
+    case "$FORCE_ARCH" in
+        ''|*[!a-zA-Z0-9_]* )
+            Warning 'Invalid --force-arch: use letters, digits and underscores'
+            return 1
+            ;;
+    esac
+}

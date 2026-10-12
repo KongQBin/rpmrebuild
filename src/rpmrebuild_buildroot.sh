@@ -48,18 +48,18 @@ fi
 BuildRoot="$1"
 
 while :; do
-	read file_type
+	IFS= read -r file_type
 	[ -z "$file_type" ] && break
-	read file_flags
-	read file_perm
-	read file_user
-	read file_group
-	read file_verify
-	read file_lang
-	read file_cap
-	read file
+	IFS= read -r file_flags
+	IFS= read -r file_perm
+	IFS= read -r file_user
+	IFS= read -r file_group
+	IFS= read -r file_verify
+	IFS= read -r file_lang
+	IFS= read -r file_cap
+	IFS= read -r file
 
-	[ -e "$file" ] || continue # File/directory not exist, do nothing
+	[ -e "$file" ] || [ -L "$file" ] || continue # File/directory not exist, do nothing
 
 	case "$file_type" in
 		d*)

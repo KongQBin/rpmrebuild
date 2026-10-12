@@ -74,34 +74,24 @@ if [ "$RPMREBUILD_PUG_FROM_FS" = "yes" ]; then
 fi
 
 while :; do
-	read file_type
+	IFS= read -r file_type
 	[ -z "$file_type" ] && break
-	read file_flags
-	read file_perm
-	read file_user
-	read file_group
-	read file_verify
-	read file_lang
-	read file_cap
-	read file
+	IFS= read -r file_flags
+	IFS= read -r file_perm
+	IFS= read -r file_user
+	IFS= read -r file_group
+	IFS= read -r file_verify
+	IFS= read -r file_lang
+	IFS= read -r file_cap
+	IFS= read -r file
 
 	# on fedora 33, centos 7, 8, the root directory "/" is owned by filesystem package
 	# but for rpmrebuild, BUILDROOT is juste a symlink, not a directory (cf RpmBuild in rpmrebuild.sh)
 	# so the build fails, the only simple way is to skip the root directory
 	[ "$file" = "/" ] && continue
 
-	# bash 2 syntaxe
-	#[[ $file = *\** ]] && file=$(echo "$file"|sed 's/\*/\\*/')
-	# bash 1 but with a fork (grep)
-	#wild=$(echo $file | grep "\*")
-	#[ -n "$wild" ] && file=$(echo "$file"|sed 's/\*/\\*/')
-	# quick and portable
-	case "$file" in
-		*\**) file=${file//\*/\\*} ;;
-		*) ;;
-	esac
 	miss_str=""
-	if [ "$RPMREBUILD_COMMENT_MISSING" = "yes" ]; then
+	if [ "$RPMREBUILD_COMMENT_MISSING" = "yes" ] && [ -z "$RPMREBUILD_package_flag" ]; then
 		if [ -e "$file" ]; then
 			miss_str=""
 		else 
@@ -115,7 +105,7 @@ while :; do
 		lang_str=""
 	else
 		lang_str="%lang($file_lang) "
-		if [ -e "$file" ]; then
+		if [ -n "$RPMREBUILD_package_flag" ] || [ -e "$file" ]; then
 			miss_str=""
 		else 
                     if [ ! -h "$file" ]; then
@@ -257,6 +247,19 @@ while :; do
 		esac
 	fi
 
-	echo "${miss_str}${lang_str}${dir_str}${fflags_str}${attr_str}${caps_str}${verify_str}\"${file}\""
+	file=${file//\\/\\\\}
+	file=${file//\"/\\\"}
+
+	# bash 2 syntaxe
+	#[[ $file = *\** ]] && file=$(echo "$file"|sed 's/\*/\\*/')
+	# bash 1 but with a fork (grep)
+	#wild=$(echo $file | grep "\*")
+	#[ -n "$wild" ] && file=$(echo "$file"|sed 's/\*/\\*/')
+	# quick and portable
+	case "$file" in
+		*\**) file=${file//\*/\\*} ;;
+		*) ;;
+	esac
+	printf '%s\n' "${miss_str}${lang_str}${dir_str}${fflags_str}${attr_str}${caps_str}${verify_str}\"${file}\""
 done || Critical "$MY_BASENAME done"
 exit 0

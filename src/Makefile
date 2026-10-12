@@ -172,3 +172,7 @@ help:
 	@echo "- html : build html pages"
 	@echo "- alldist : build all packages"
 	@echo "- clean : clean temporay files"
+
+.PHONY: test-regressions
+test-regressions:
+	python3 ../test/test_regressions.py

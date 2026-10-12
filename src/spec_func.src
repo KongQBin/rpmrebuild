@@ -62,14 +62,15 @@ function spec_query
 # build the list of files in package
 function spec_files
 {
-	rm -f "$FILES_IN" || Erro "spec_files rm $FILES_IN" || return
+	rm -f "$FILES_IN" || Error "spec_files rm $FILES_IN" || return
 	spec_query qf_spec_files > "$FILES_IN" || Error "(spec_files) spec_query qf_spec_files" || return
 	/bin/bash "$MY_LIB_DIR"/rpmrebuild_files.sh < "$FILES_IN" || Error "(spec_files) rpmrebuild_files.sh" || return
 	return 0
 }
 
 function spec_preamble
-{
+(
+	set -o pipefail
 
 	if [ -z "$RELEASE_NEW" ]; then
 		spec_query qf_spec_preamble                         || Error "(spec_preamble) spec_query qf_spec_preamble" || return
@@ -80,22 +81,53 @@ Release:       $RELEASE_NEW
 	}"
 		spec_query qf_spec_preamble | sed -e "$sed_release" || Error "(spec_preamble) spec_query qf_spec_preamble with sed" || return
 	fi
+)
+
+# Identify rpm's automatic package-name(ISA) provide using the original platform.
+# Loading its macros avoids using the host ISA when rebuilding a foreign package.
+function spec_self_provide
+{
+    local name arch version config isa
+    name=$(rpm --query $RPMREBUILD_package_flag --queryformat '%{NAME}' "$RPMREBUILD_PAQUET") || return
+    arch=$(rpm --query $RPMREBUILD_package_flag --queryformat '%{ARCH}' "$RPMREBUILD_PAQUET") || return
+    [ "$arch" != noarch ] || return 0
+    version=$(rpm --query $RPMREBUILD_package_flag --queryformat '%|EPOCH?{%{EPOCH}:}|%{VERSION}-%{RELEASE}' "$RPMREBUILD_PAQUET") || return
+    config=$(rpm --eval '%{_rpmconfigdir}') || return
+    if [ ! -r "$config/platform/$arch-linux/macros" ]; then
+        Warning "Cannot determine original ISA for $arch"
+        return 1
+    fi
+    isa=$(rpm --macros "$config/macros:$config/platform/$arch-linux/macros" --eval '%{?_isa}') || return
+    [ -n "$isa" ] || return 0
+    printf '%s%s = %s' "$name" "$isa" "$version"
 }
 
 function spec_provides
-{
+(
+	set -o pipefail
 	# gpg key can not be provided
 	# let us remove it.
 
 	# Comment out Provides with pgp()
 	local sed_provides='/Provides[[:space:]]*:[[:space:]]*gpg(.*)/s/^/#/'
 	[ "$RPMREBUILD_autoprovide" = "yes" ] && sed_provides="$sed_provides$sed_comment"
-	spec_query qf_spec_provides | sed -e "$sed_provides" || Error "(spec_provides) spec_query qf_spec_provides" || return
+	local original_isa original_self
+    if [ -n "$FORCE_ARCH" ]; then
+        ValidateForceArch || return
+        original_isa=$(spec_self_provide) || return
+        original_self="Provides:      $original_isa"
+        spec_query qf_spec_provides | while IFS= read -r line; do
+            [ "$line" = "$original_self" ] || printf '%s\n' "$line"
+        done | sed -e "$sed_provides"
+    else
+        spec_query qf_spec_provides | sed -e "$sed_provides"
+    fi || Error "(spec_provides) spec_query qf_spec_provides" || return
 	return 0
-}
+)
 
 function spec_requires
-{
+(
+	set -o pipefail
 	# rpmlib dependencies are insert during rpm building
 	# let us remove it.
 
@@ -114,7 +146,7 @@ function spec_requires
 		spec_query qf_spec_requires | sed -e "$sed_requires" || Error "(spec_requires) spec_query qf_spec_requires" || return
 	fi
 	return 0
-}
+)
 
 function decode_requires
 {

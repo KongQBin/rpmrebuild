@@ -245,6 +245,9 @@ function processing_spec_change
 		;;
 	esac
 
+    local quoted_in quoted_out
+    printf -v quoted_in '%q' "$SPEC_IN"
+    printf -v quoted_out '%q' "$SPEC_OUT"
 	case "$operation" in
 		change-spec-*)
 			cat <<-CMD_CHANGE >> "$Output" || return
@@ -253,7 +256,7 @@ function processing_spec_change
 				   PATH="\$RPMREBUILD_PLUGINS_DIR:\$PATH" &&
 				   export LONG_OPTION="$LONG_OPTION"      &&
 				   $OPTARG; 
-				) < $SPEC_IN > $SPEC_OUT || return
+				) < $quoted_in > $quoted_out || return
 			
 			CMD_CHANGE
 		;;
@@ -261,8 +264,8 @@ function processing_spec_change
 		edit-*)
 			cat <<-CMD_EDIT >> "$Output" || return
 				# $operation
-				   cp -f "$SPEC_IN" "$SPEC_OUT" || return
-				   SpecEdit "$SPEC_OUT"       || return
+				   cp -f $quoted_in $quoted_out || return
+				   SpecEdit $quoted_out       || return
 			
 			CMD_EDIT
 		;;
@@ -270,7 +273,7 @@ function processing_spec_change
 		concatenate)
 			cat <<-CMD_CONCATENATE >> "$Output" || return
 				# $operation
-				   spec_concatenate > "$SPEC_OUT" || return
+				   spec_concatenate > $quoted_out || return
 			CMD_CONCATENATE
 
 		;;
@@ -284,25 +287,29 @@ function processing_spec_change
 
 function processing_fini
 {
+    local quoted_source quoted_spec quoted_dest
+    printf -v quoted_source '%q' "$FIC_SPEC.$spec_index"
+    printf -v quoted_spec '%q' "$FIC_SPEC"
+    printf -v quoted_dest '%q' "$RPMREBUILD_specfile"
 	local cmd
 	if [ "$spec_concatenated" = "yes" ]; then
 		case "$RPMREBUILD_specfile" in
 			'') # No spec-only flag
-				cmd="cp -f $FIC_SPEC.$spec_index $FIC_SPEC"
+				cmd="cp -f $quoted_source $quoted_spec"
 			;;
 
 			'-') # Spec-only flag, specfile is stdout
-				cmd="cat $FIC_SPEC.$spec_index"
+				cmd="cat $quoted_source"
 			;;
 
 			*) # Spec-only flag, specfile not stdout
-				cmd="cp -f $FIC_SPEC.$spec_index $RPMREBUILD_specfile"
+				cmd="cp -f $quoted_source $quoted_dest"
 			;;
 			esac || return
 	else
 		case "$RPMREBUILD_specfile" in
 			'') # No spec-only flag
-				cmd="spec_concatenate > $FIC_SPEC"
+				cmd="spec_concatenate > $quoted_spec"
 			;;
 
 			'-') # Spec-only flag, specfile is stdout
@@ -310,7 +317,7 @@ function processing_fini
 			;;
 
 			*) # Spec-only flag, specfile not stdout
-				cmd="spec_concatenate > $RPMREBUILD_specfile"
+				cmd="spec_concatenate > $quoted_dest"
 			;;
 		esac || return
 	fi
@@ -333,7 +340,8 @@ function CreateProcessing
 
 	local operation="$1"
 	local Output="$RPMREBUILD_PROCESSING"
-	local cmd
+	local cmd quoted_root
+	printf -v quoted_root '%q' "$BUILDROOT"
 	case "$operation" in
 		fini)
 			processing_fini || Error "(CreateProcessing) processing_fini" || return
@@ -357,7 +365,7 @@ function CreateProcessing
 			# $operation
 			(
 			   PATH="\$RPMREBUILD_PLUGINS_DIR:\$PATH" &&
-			   export RPM_BUILD_ROOT="$BUILDROOT"     &&
+			   export RPM_BUILD_ROOT=$quoted_root     &&
 			   export LONG_OPTION="$LONG_OPTION"      &&
 			   $OPTARG; 
 			) || return

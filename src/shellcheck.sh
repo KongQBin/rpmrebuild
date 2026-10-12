@@ -9,6 +9,8 @@ then
 	exit 1
 fi
 
+set -o pipefail
+
 # to avoid problem with translations
 export SHELLCHECK=y
 

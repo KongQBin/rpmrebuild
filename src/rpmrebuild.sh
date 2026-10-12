@@ -230,11 +230,13 @@ function ArchInit
 	if [ -n "$FORCE_ARCH" ]; then
 		Debug "  User triggered forced architecture: $FORCE_ARCH"
 		# 删除配置文件中的架构信息，使rpmbuild不再关心架构
-		sed -i '/^BuildArch:/Id' "${FIC_SPEC}"
+		ValidateForceArch || return
+		sed -i '/^BuildArch:/Id' "${FIC_SPEC}" || return
 		Debug "  Removed BuildArch from SPEC file to bypass rpmbuild strict check."
 		# 注入强制架构参数，全面接管打包流程
-		RPMREBUILD_additional="$RPMREBUILD_additional --target=$FORCE_ARCH"
-		RPMREBUILD_rpm_defines="$RPMREBUILD_rpm_defines --define=\"_arch $FORCE_ARCH\" --define=\"_target_cpu $FORCE_ARCH\""
+		RPMREBUILD_ADDITIONAL_ARGS+=("--target=$FORCE_ARCH")
+		AddRpmDefine "_arch $FORCE_ARCH"
+		AddRpmDefine "_target_cpu $FORCE_ARCH"
 	else
 		# 默认情况，禁止设置字典中不存在的架构，否则rpmbuild报错
 		Debug "  Normal mode. Keeping original SPEC BuildArch: $pac_arch"
@@ -278,7 +280,7 @@ function RpmBuild
 			return 1
 		}
 	fi
-	eval $BUILDCMD --define "'buildroot $BUILDROOT'" "$RPMREBUILD_rpm_defines" -bb "$RPMREBUILD_rpm_verbose" "$RPMREBUILD_additional" "${FIC_SPEC}" || {
+	"$BUILDCMD" --define "buildroot $BUILDROOT" "${RPMREBUILD_DEFINE_ARGS[@]}" -bb "$RPMREBUILD_rpm_verbose" "${RPMREBUILD_ADDITIONAL_ARGS[@]}" "$FIC_SPEC" || {
 		Error "(RpmBuild) package '${RPMREBUILD_PAQUET}' $BuildFailed"
 		return 1
 	}
@@ -291,22 +293,20 @@ function RpmFileName
 {
 	Debug '(RpmFileName)'
 	local QF_RPMFILENAME
-	QF_RPMFILENAME=$(eval rpm "$RPMREBUILD_rpm_defines" --eval %_rpmfilename) || return
+	QF_RPMFILENAME=$(rpm "${RPMREBUILD_DEFINE_ARGS[@]}" --eval %_rpmfilename) || return
 	#Debug "    QF_RPMFILENAME=$QF_RPMFILENAME"
 	# from generated specfile
-	RPMFILENAME=$(eval rpm "$RPMREBUILD_rpm_defines" --specfile --query --queryformat "${QF_RPMFILENAME}" "${FIC_SPEC}") || return
+	RPMFILENAME=$(rpm "${RPMREBUILD_DEFINE_ARGS[@]}" --specfile --query --queryformat "${QF_RPMFILENAME}" "${FIC_SPEC}") || return
 
 	# workaround for redhat 6.x / rpm 3.x
 	local arch
-	arch=$(eval rpm "$RPMREBUILD_rpm_defines" --specfile --query --queryformat "%{ARCH}"  "${FIC_SPEC}")
+	arch=$(rpm "${RPMREBUILD_DEFINE_ARGS[@]}" --specfile --query --queryformat "%{ARCH}"  "${FIC_SPEC}")
 	if [ "$arch" = "(none)" ]
 	then
 		Debug '    workaround for rpm 3.x'
 		# get info from original paquet
 		# will work if no changes in spec (release ....)
-		#arch=$(eval rpm $RPMREBUILD_rpm_defines --query $RPMREBUILD_package_flag --queryformat "%{ARCH}" ${RPMREBUILD_PAQUET})
-		#RPMFILENAME=$(echo $RPMFILENAME | sed "s/(none)/$arch/g")
-		RPMFILENAME=$(eval rpm "$RPMREBUILD_rpm_defines" --query --queryformat "${QF_RPMFILENAME}" "${RPMREBUILD_PAQUET}") || return
+		RPMFILENAME=$(rpm "${RPMREBUILD_DEFINE_ARGS[@]}" --query --queryformat "${QF_RPMFILENAME}" "${RPMREBUILD_PAQUET}") || return
 	fi
 
 	[ -n "$RPMFILENAME" ] || return
