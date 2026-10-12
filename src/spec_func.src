@@ -88,10 +88,12 @@ Release:       $RELEASE_NEW
 function spec_self_provide
 {
     local name arch version config isa
-    name=$(rpm --query $RPMREBUILD_package_flag --queryformat '%{NAME}' "$RPMREBUILD_PAQUET") || return
-    arch=$(rpm --query $RPMREBUILD_package_flag --queryformat '%{ARCH}' "$RPMREBUILD_PAQUET") || return
+    local package_args=()
+    [ -z "$RPMREBUILD_package_flag" ] || package_args=("$RPMREBUILD_package_flag")
+    name=$(rpm --query "${package_args[@]}" --queryformat '%{NAME}' "$RPMREBUILD_PAQUET") || return
+    arch=$(rpm --query "${package_args[@]}" --queryformat '%{ARCH}' "$RPMREBUILD_PAQUET") || return
     [ "$arch" != noarch ] || return 0
-    version=$(rpm --query $RPMREBUILD_package_flag --queryformat '%|EPOCH?{%{EPOCH}:}|%{VERSION}-%{RELEASE}' "$RPMREBUILD_PAQUET") || return
+    version=$(rpm --query "${package_args[@]}" --queryformat '%|EPOCH?{%{EPOCH}:}|%{VERSION}-%{RELEASE}' "$RPMREBUILD_PAQUET") || return
     config=$(rpm --eval '%{_rpmconfigdir}') || return
     if [ ! -r "$config/platform/$arch-linux/macros" ]; then
         Warning "Cannot determine original ISA for $arch"

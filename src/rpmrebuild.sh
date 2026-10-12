@@ -37,6 +37,8 @@ function GetVersion
 ###############################################################################
 # edit spec file
 # use environment variable to choice the editor
+# Called by generated processing scripts.
+# shellcheck disable=SC2329
 function SpecEdit
 {
 	Debug '(SpecEdit)'
@@ -133,14 +135,14 @@ function ProcessTar {
 	echo "Contents of $ARCHIVE_EXTRACT_DIR:"
 	ls -la "$TMPDIR_WORK"
 	echo "Size of $ARCHIVE_EXTRACT_DIR:"
-	echo $(du -sh $ARCHIVE_EXTRACT_DIR)
+	du -sh "$ARCHIVE_EXTRACT_DIR"
 
 	Debug "Running tar -xf $ARCHIVE_TEMP -C $ARCHIVE_EXTRACT_DIR"
 	tar -xf "$ARCHIVE_TEMP" -C "$ARCHIVE_EXTRACT_DIR" || {
 		Error "（ProcessTar） Extraction of tar file failed "
 		exit 1
 	}
-	echo $(du -sh $ARCHIVE_EXTRACT_DIR)
+	du -sh "$ARCHIVE_EXTRACT_DIR"
 	echo "Here is the size of extracted files"
 }
 
@@ -149,6 +151,8 @@ function ProcessTar {
 function RpmUnpackTGZ {
     local ARCHIVE_TEMP="$TMPDIR_WORK/temp_archive.tgz"
     local PAQUETGZ="${RPMREBUILD_PAQUET}.tgz"
+    # Handle failure from any of the three extraction steps.
+    # shellcheck disable=SC2015
     rpm2archive "${RPMREBUILD_PAQUET}" && mv "$PAQUETGZ" "$ARCHIVE_TEMP" && ProcessTar "$ARCHIVE_TEMP" || {
 		Error "(RpmUnpack) rpm2cpio and rpm2archive failed"
 		return 1
@@ -164,7 +168,7 @@ function RpmUnpackTGZ {
 function RpmUnpack {
 	Debug '(RpmUnpack)'
 	# do not install files on /
-	[ "x$BUILDROOT" = "x/" ] && {
+	[ "$BUILDROOT" = "/" ] && {
 		Error "(RpmUnpack) $BuildRootError"
 		return 1
 	}
@@ -585,6 +589,8 @@ function clean_exit
 }
 ##############################################################
 # on signal clean as usual
+# Called by the signal trap below.
+# shellcheck disable=SC2329
 function sig_prgm
 {
 	clean_exit

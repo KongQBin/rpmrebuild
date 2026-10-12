@@ -1361,10 +1361,14 @@ function CommandLineParsing
    		1) # One argument, it's ok
 			RPMREBUILD_PAQUET="$1"
 			if [ -z "$RPMREBUILD_package_flag" ]; then
+				# Available to commands in generated processing scripts.
+				# shellcheck disable=SC2034
 				PAQUET_NAME=$( basename "$RPMREBUILD_PAQUET" )
 			else
 				# argument should be a file
 				if [ -f "$RPMREBUILD_PAQUET" ]; then
+					# Available to commands in generated processing scripts.
+					# shellcheck disable=SC2034
 					PAQUET_NAME=$( basename "$RPMREBUILD_PAQUET" )
 					# check if it is an rpm file
 					# rem : 'file' sometimes does not return 
